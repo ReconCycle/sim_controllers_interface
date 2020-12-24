@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>sim_controllers_interface</name>
+  <version>0.0.0</version>
+  <description>Package containing interface for controlling Panda using panda_sim_controllers</description>
+
+  <author email="mihael.simonic@ijs.si">Mihael</author>
+  <maintainer email="mihael.simonic@ijs.si">Mihael Simonič</maintainer>
+  <license>GPLv2</license>
+  <url type="website">https://github.com/ReconCycle</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rospy</depend>
+  <depend>panda_sim_controllers/</depend>
+  <depend>python-numpy</depend>
+  <depend>robot_module_msgs</depend>
+  <depend>actionlib</depend>
+
+</package>
