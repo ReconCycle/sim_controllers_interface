@@ -3,8 +3,10 @@
 * Starting simulation 
 
 ```
-docker run -p 9090:9090 -it reconcycle/docker_examples:ros1-simulation -name panda_sim roslaunch panda_gazebo panda_world.launch 
+docker run -p 9090:9090 -it reconcycle/docker_examples:ros1-simulation --name panda_sim roslaunch panda_gazebo panda_world.launch 
 ```
+
+* Webinterface is at http://localhost:9090/vnc.html
 
 * Install into docker
 ```
@@ -20,6 +22,8 @@ TODO: integrate into docker image
 
 * Run action server 
 ```
+docker exec -it panda_sim bash
+source devel/setup.bash
 rosrun sim_controllers_interface joint_min_jerk_action_server.py
 ```
 
@@ -29,6 +33,8 @@ rosrun sim_controllers_interface joint_min_jerk_action_server.py
 
 * Test action server
 ```
+docker exec -it panda_sim bash
+source devel/setup.bash
 rosrun sim_controllers_interface joint_min_jerk_test_client.py
 ```
 

@@ -84,7 +84,7 @@ class JointMinJerkActionInterface(object):
         cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
         cmd_msg.position = q
         cmd_msg.velocity = qdot
-        cmd_msg.mode = cmd_msg.VELOCITY_MODE
+        cmd_msg.mode = cmd_msg.POSITION_MODE
         
         #Publish
         self._command_pub.publish(cmd_msg)
