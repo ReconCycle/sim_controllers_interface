@@ -30,14 +30,14 @@ def test_client():
     q0=[-0.04, -0.20, 0.20, -2.00, 0.018, 1.83, 1]
     q1=[0.04, 0.33, 0.01, -1.48, 0.02, 1.91, 0.74]
     motion_duration=2
-    motion_timestep=0.1
+    motion_timestep=0.005
 
     # Wait for confirmation
     #raw_input("Go to {0}!".format(q0))
 
     try:
         # Sends the goal to the action server.
-        goal = JointMinJerkGoal(q0,2, 0.1)
+        goal = JointMinJerkGoal(q0,motion_duration,motion_timestep)
         client.send_goal(goal)
         # Waits for the server to finish performing the action.
         client.wait_for_result()

@@ -102,9 +102,7 @@ class JointMinJerkActionInterface(object):
         end_joint_pos = goal.goal_joint_pos
         motion_duration = goal.motion_duration
         motion_timestep = goal.motion_timestep
-
-        #rate = rospy.Rate(1/goal.motion_timestep)
-        rate=rospy.Rate(10)
+        rate = rospy.Rate(1/goal.motion_timestep)
 
         # Calculate trajectory points using min jerk algorithm
         for i in range(num_joints):

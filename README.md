@@ -1,40 +1,33 @@
+Simple action server for generating trajectories and sending them to [panda_simulator](https://github.com/justagist/panda_simulator).
+
+Availiable actions:
+- [robot_module_msgs/JointMinJerk.action](https://github.com/ReconCycle/robot_module_msgs/blob/ijs_controllers_update/action/JointMinJerk.action)
+
+# Installation
+
+```
+cd catkin_ws/src
+git clone https://github.com/ReconCycle/sim_controllers_interface
+git clone -b ijs_controllers_update https://github.com/ReconCycle/robot_module_msgs
+catkin build
+source devel/setup.bash
+```
+
 # Example usage  
 
-* Starting simulation 
+- Start simulation 
 
-```
-docker run -p 9090:9090 -it reconcycle/docker_examples:ros1-simulation --name panda_sim roslaunch panda_gazebo panda_world.launch 
-```
+      $ roslaunch panda_gazebo panda_world.launch 
 
-* Webinterface is at http://localhost:9090/vnc.html
+- Start action server
 
-* Install into docker
-```
-docker exec -it panda_sim bash
-cd /ros_ws/src
-git clone https://github.com/ReconCycle/sim_controllers_interface
-cd robot_module_msgs
-git pull && git checkout ijs_controllers_update
-catkin build
-```
-TODO: integrate into docker image
+      $ rosrun sim_controllers_interface joint_min_jerk_action_server.py
 
+- Test action server
 
-* Run action server 
-```
-docker exec -it panda_sim bash
-source devel/setup.bash
-rosrun sim_controllers_interface joint_min_jerk_action_server.py
-```
+      $ rosrun sim_controllers_interface joint_min_jerk_test_client.py
 
-* Action server specification
+# Docker example
 
-[robot_module_msgs/JointMinJerk.action](https://github.com/ReconCycle/robot_module_msgs/blob/ijs_controllers_update/action/JointMinJerk.action)
-
-* Test action server
-```
-docker exec -it panda_sim bash
-source devel/setup.bash
-rosrun sim_controllers_interface joint_min_jerk_test_client.py
-```
+https://github.com/abr-ijs/panda_dockers
 
