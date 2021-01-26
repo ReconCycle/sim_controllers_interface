@@ -2,8 +2,7 @@
 #
 # Action server that sends commands to cartesian impedance controller from ijs_controllers.
 #
-# Authors: Mihael Simonic
-# Edited: Matej Štefanič
+# Authors: Mihael Simonic, Matej Stefanic
 #
 
 # Calculations
@@ -14,7 +13,7 @@ from minimum_jerk_slerp import min_jerk_slerp
 import numpy as np
 
 # KDL
-from kdl_tree_urdf_model import *
+from kdl_tree_from_urdf_model import *
 import PyKDL
 
 # ROS stuff
@@ -41,7 +40,7 @@ class CartLinActionInterface(object):
 
     _robot_pos = []
     _robot_ori = []
-    _jointposition = []
+    _robotjoints = []
 
     tfBuffer = None
     listener = None
@@ -55,12 +54,15 @@ class CartLinActionInterface(object):
         # Get pose of the tip in base frame
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
-        
+
+        # Subscribe to robot state topics
+        rospy.Subscriber('/joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
+
         # KDL
-        base_link = 'base'
-        tip_link = 'panda_link8'
-        kdl_tree = kdl_from_param_server('/joint_states')
-        arm_chain = kdl_tree.getChain(base_link, tip_link)
+        self.base_link = 'base'
+        self.tip_link = 'panda_link8'
+        kdl_tree = kdl_tree_from_param_server('robot_description')
+        arm_chain = kdl_tree.getChain(self.base_link, self.tip_link)
         num_jnts = 7
         self.jac_kdl = PyKDL.Jacobian(num_jnts)
         self.jac_kdl_solver = PyKDL.ChainJntToJacSolver(arm_chain)
@@ -79,25 +81,33 @@ class CartLinActionInterface(object):
         self._as.start()
 
 
+    # ---------
+    # Callbacks
+    # ---------
+    def getrobotjoints_cb(self, joints):
+        """Callback function for getting robot joint states."""
+        # panda_simulator also publishes finger1 and finger2 to joint state 
+        self._robotjoints = joints.position[2:9]
+
     # ------------------------
     # Main robot motion method
     # ------------------------
-    def move_robot_to_point(self, pos_desired): #, vel_desired):
-        
+    def move_robot_to_point(self, pos_desired, vel_desired):
+
         # Convert to numpy
-        q = np.asarray(pos_desired)  # make inverse kinematic here for q - joints
-        #qdot = np.asarray(vel_desired)
+        q = np.asarray(pos_desired)
+        qdot = np.asarray(vel_desired)
 
         #Construct message
-        cmd_msg = robot_module_msgs.msg.JointCommand()
-        cmd_msg.target_pose = q
-        cmd_msg.desired_travel_time = 2
-        cmd_msg.blend_radius = 0
+        cmd_msg = JointCommand()
+        
+        cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
+        cmd_msg.position = q
+        cmd_msg.velocity = qdot
+        cmd_msg.mode = cmd_msg.POSITION_MODE
         
         #Publish
         self._command_pub.publish(cmd_msg)
-        
-        rospy.logdebug("Next point sent")
 
     # ------------------------------------------
     # Main action server execution callback
@@ -107,7 +117,7 @@ class CartLinActionInterface(object):
         num_joints=7
         coeffs = np.zeros((num_joints, 6)) # 7x6
         
-        start_pose = self.tfBuffer.lookup_transform('base','panda_link8',rospy.Time()) # pos of panda_link8 based on base at current time
+        start_pose = self.tfBuffer.lookup_transform(self.base_link,self.tip_link,rospy.Time()) # pos of panda_link8 in base at current time
         start_pos = [start_pose.transform.translation.x, start_pose.transform.translation.y, start_pose.transform.translation.z] # read from start_pose
         start_ori = [start_pose.transfrom.rotation.x,start_pose.transfrom.rotation.y,start_pose.transfrom.rotation.z,start_pose.transfrom.rotation.w] # read from start_pose
 
@@ -134,16 +144,53 @@ class CartLinActionInterface(object):
         path_pos = np.zeros((int(motion_duration/motion_timestep + 1), 3))
         path_vel = np.zeros((int(motion_duration/motion_timestep + 1), 3))
         path_acc = np.zeros((int(motion_duration/motion_timestep + 1), 3))
-        path_pos[:, 0], path_vel[:, 0], path_acc[:, 0] = polynomial2(coeffs_x, motion_timestep, motion_duration) # creates trajectory
-        path_pos[:, 1], path_vel[:, 1], path_acc[:, 1] = polynomial2(coeffs_y, motion_timestep, motion_duration)
-        path_pos[:, 2], path_vel[:, 2], path_acc[:, 2] = polynomial2(coeffs_z, motion_timestep, motion_duration)
+        path_pos[:, 0], _, _ = polynomial2(coeffs_x, motion_timestep, motion_duration) # creates trajectory
+        path_pos[:, 1], _, _ = polynomial2(coeffs_y, motion_timestep, motion_duration)
+        path_pos[:, 2], _, _ = polynomial2(coeffs_z, motion_timestep, motion_duration)
         
+        # SLERP
         path_quat = np.zeros((int(motion_duration/motion_timestep + 1), 4)) # prepare matrix
         for i in range(int(motion_duration/motion_timestep + 1)):
             i_t = i*motion_timestep
-            path_quat_dict, _, _ = min_jerk_slerp(start_quat_dict, end_quat_dict, motion_duration, i_t) #interpolation
+            path_quat_dict, _, _ = min_jerk_slerp(start_quat_dict, end_quat_dict, motion_duration, i_t) # interpolation
             path_quat[i, 3] = path_quat_dict['s'] # s - scalar
             path_quat[i, 0:3] = path_quat_dict['v'][0:3] # v - vector
+
+        # Get initial joint configuration and cartesian pose
+        last_joint_conf_kdl = PyKDL.JntArray(self.num_jnts)
+        for i in range(self.num_jnts):
+            last_joint_conf_kdl[i] = self._robotjoints[i]
+        last_pos = copy(start_pos)
+        last_ori = copy(start_ori)
+
+        # Calculate joint configurations using inverse kinematics
+        path_joint_positions = np.zeros((path_pos.shape[0], num_joints))
+        path_joint_velocities = np.zeros((path_pos.shape[0], num_joints))
+
+        for i in range(path_pos.shape[0]):
+            # Get Jacobian and its pseudoinverse
+            self.jac_kdl_solver.JntToJac(last_joint_conf_kdl, self.jac_kdl)
+            jac = kdl_to_mat(self.jac_kdl)
+            jac_pseudo_inverse = np.linalg.pinv(jac)
+
+            # Define task space change
+            pos_change = path_pos[i,:] - last_pos
+            ori_change = path_quat[i,:] - last_ori
+            change = np.append(pos_change, ori_change)
+
+            # Calculate desired joint space coordinates
+            last_joint_conf = [q for q in last_joint_conf_kdl]; # kdl array -> list
+            desired_joint_conf = last_joint_conf + np.matmul(jac_pseudo_inverse,change)
+
+            # Append point to trajectory
+            path_joint_positions[i,:] = desired_joint_conf.A1.tolist()
+            path_joint_velocities[i,:] = np.matmul(jac_pseudo_inverse,change)
+
+            # Update last_joint_conf_kdl to desired_joint_conf
+            for i in range(num_jnts):
+                last_joint_conf_kdl[i] = desired_joint_conf.item(i) 
+            last_pos = path_pos[i,:]
+            last_ori = path_quat[i,:]
 
 
         # Publish info to the console for the user
@@ -153,37 +200,10 @@ class CartLinActionInterface(object):
                                                            end_pos,end_ori,
                                                            motion_duration))
         
-        # get initial joint configuration
-        init_state = rospy.wait_for_message('/joint_states', JointState, timeout=1)
-        last_joint_conf_kdl = PyKDL.JntArray(self.num_jnts)
-        for i in range(self.num_jnts):
-            last_joint_conf_kdl[i] = init_state.position[i]
-
-        traj= JointCommand()
-        joint_names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
-        traj.joint_names = joint_names 
-
-        time = 1
 
         # Start executing the action
         for i in range(len(path_quat)):
 
-            self.jac_kdl_solver.JntToJac(last_joint_conf_kdl, self.jac_kdl)
-            jac = kdl_to_mat(self.jac_kdl)
-            jac_pseudo_inverse = np.linalg.pinv(jac)
-
-            change = np.appned(end_pos, end_ori)
-
-            last_joint_conf = [q for q in last_joint_conf_kdl];
-            desired_joint_conf = last_joint_conf + np.matmul(jac_pseudo_inverse, change)
-
-            trjp = JointCommand()
-            trjp.position = desired_joint_conf.A1.tolist()
-            trjp.time_from_start = rospy.Duration(time)
-            traj.points.append(trjp)
-
-            time += 0.1
-            
             # Check that preempt has not been requested by the client
             if self._as.is_preempt_requested():
                 rospy.logwarn('[{0}]: Preempted'.format(self._action_name))
@@ -192,9 +212,9 @@ class CartLinActionInterface(object):
                 return
 
             # Send command to the robot
-            #self.move_robot_to_pose(path_pos[i, :], path_quat[i, :])
-            print(path_pos[i, :])
-            print(traj.points[i, :])
+            self.move_robot_to_point(path_joint_positions[i,:], path_joint_velocities[i,:] )
+            #print(path_pos[i, :])
+            #print(traj.points[i, :])
 
             # Get the current pose as feedback
             self._feedback.current_pose = self.tfBuffer.lookup_transform('base','panda_link8',rospy.Time())

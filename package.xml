@@ -11,9 +11,12 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <depend>rospy</depend>
-  <depend>panda_sim_controllers/</depend>
+  <depend>panda_sim_controllers</depend>
   <depend>python-numpy</depend>
   <depend>robot_module_msgs</depend>
   <depend>actionlib</depend>
+  <depend>urdf_parser_plugin</depend>
+  <depend>orocos_kdl</depend>
+  <depend>kdl_parser_py</depend>
 
 </package>
