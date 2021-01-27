@@ -63,8 +63,8 @@ class CartLinActionInterface(object):
         self.tip_link = 'panda_link8'
         kdl_tree = kdl_tree_from_param_server('robot_description')
         arm_chain = kdl_tree.getChain(self.base_link, self.tip_link)
-        num_jnts = 7
-        self.jac_kdl = PyKDL.Jacobian(num_jnts)
+        num_joints = 7
+        self.jac_kdl = PyKDL.Jacobian(num_joints)
         self.jac_kdl_solver = PyKDL.ChainJntToJacSolver(arm_chain)
 
         # Initialize publisher
@@ -119,16 +119,17 @@ class CartLinActionInterface(object):
         
         start_pose = self.tfBuffer.lookup_transform(self.base_link,self.tip_link,rospy.Time()) # pos of panda_link8 in base at current time
         start_pos = [start_pose.transform.translation.x, start_pose.transform.translation.y, start_pose.transform.translation.z] # read from start_pose
-        start_ori = [start_pose.transfrom.rotation.x,start_pose.transfrom.rotation.y,start_pose.transfrom.rotation.z,start_pose.transfrom.rotation.w] # read from start_pose
+        start_ori = [start_pose.transform.rotation.x,start_pose.transform.rotation.y,start_pose.transform.rotation.z,start_pose.transform.rotation.w] # read from start_pose
 
         start_quat_dict = dict()
         start_quat_dict['s'] = start_ori[3]
         start_quat_dict['v'] = np.asarray(start_ori[0:3])
 
-        end_pos = goal.target_pose.position
-        end_ori = goal.target_pose.orientation
+        #TODO: handle multiple goals
+        end_pos = [goal.target_pose[0].position.x,goal.target_pose[0].position.y,goal.target_pose[0].position.z]
+        end_ori = [goal.target_pose[0].orientation.x,goal.target_pose[0].orientation.y,goal.target_pose[0].orientation.z,goal.target_pose[0].orientation.w]
 
-        end_quat_dict = dict() # compatibilty for function
+        end_quat_dict = dict()
         end_quat_dict['s'] = end_ori[3]
         end_quat_dict['v'] = np.asarray(end_ori[0:3])
 
@@ -147,7 +148,7 @@ class CartLinActionInterface(object):
         path_pos[:, 0], _, _ = polynomial2(coeffs_x, motion_timestep, motion_duration) # creates trajectory
         path_pos[:, 1], _, _ = polynomial2(coeffs_y, motion_timestep, motion_duration)
         path_pos[:, 2], _, _ = polynomial2(coeffs_z, motion_timestep, motion_duration)
-        
+
         # SLERP
         path_quat = np.zeros((int(motion_duration/motion_timestep + 1), 4)) # prepare matrix
         for i in range(int(motion_duration/motion_timestep + 1)):
@@ -157,11 +158,11 @@ class CartLinActionInterface(object):
             path_quat[i, 0:3] = path_quat_dict['v'][0:3] # v - vector
 
         # Get initial joint configuration and cartesian pose
-        last_joint_conf_kdl = PyKDL.JntArray(self.num_jnts)
-        for i in range(self.num_jnts):
+        last_joint_conf_kdl = PyKDL.JntArray(num_joints)
+        for i in range(num_joints):
             last_joint_conf_kdl[i] = self._robotjoints[i]
-        last_pos = copy(start_pos)
-        last_ori = copy(start_ori)
+        last_pos = start_pos
+        last_ori = start_ori
 
         # Calculate joint configurations using inverse kinematics
         path_joint_positions = np.zeros((path_pos.shape[0], num_joints))
@@ -175,11 +176,12 @@ class CartLinActionInterface(object):
 
             # Define task space change
             pos_change = path_pos[i,:] - last_pos
-            ori_change = path_quat[i,:] - last_ori
-            change = np.append(pos_change, ori_change)
+            #TODO: quaternion error
+            # ori_change = q_log(q_inverse(path_quat[i,:]) * last_ori));
+            change = np.append(pos_change, [0,0,0])
 
             # Calculate desired joint space coordinates
-            last_joint_conf = [q for q in last_joint_conf_kdl]; # kdl array -> list
+            last_joint_conf = [q for q in last_joint_conf_kdl]; # kdl array -> list            
             desired_joint_conf = last_joint_conf + np.matmul(jac_pseudo_inverse,change)
 
             # Append point to trajectory
@@ -187,7 +189,7 @@ class CartLinActionInterface(object):
             path_joint_velocities[i,:] = np.matmul(jac_pseudo_inverse,change)
 
             # Update last_joint_conf_kdl to desired_joint_conf
-            for i in range(num_jnts):
+            for i in range(num_joints):
                 last_joint_conf_kdl[i] = desired_joint_conf.item(i) 
             last_pos = path_pos[i,:]
             last_ori = path_quat[i,:]
@@ -217,7 +219,9 @@ class CartLinActionInterface(object):
             #print(traj.points[i, :])
 
             # Get the current pose as feedback
-            self._feedback.current_pose = self.tfBuffer.lookup_transform('base','panda_link8',rospy.Time())
+            current_transform = self.tfBuffer.lookup_transform('base','panda_link8',rospy.Time())
+            self._feedback.current_pose.position = current_transform.transform.translation
+            self._feedback.current_pose.orientation = current_transform.transform.rotation
             #self._feedback.total_diff, pos_diff, rot_diff ...
 
             # Publish the feedback

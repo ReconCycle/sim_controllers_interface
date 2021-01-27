@@ -35,8 +35,8 @@ def min_jerk_slerp(q1, q2, T, t):
 
     if th > np.pi/2:
         # wrong direction, path towards -q2 (same orientation) is shorter
-        q2.s = -q2['s']
-        q2.v = -q2['v']
+        q2['s'] = -q2['s']
+        q2['v'] = -q2['v']
 
         dq = quat_mult(q2, quat_conjugate(q1))
         th = np.arccos(dq['s'])

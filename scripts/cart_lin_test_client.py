@@ -62,7 +62,7 @@ def cartesian_motion_test_client():
 
     # Waits for the server to finish performing the action.
     client.wait_for_result()
-
+    
     # Go back where you started
     client.send_goal(goal_cart_trap_back)
     client.wait_for_result()
