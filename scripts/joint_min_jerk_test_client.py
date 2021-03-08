@@ -19,8 +19,9 @@ from robot_module_msgs.msg import JointMinJerkAction,JointMinJerkFeedback,JointM
 
 def test_client():
 
+    namespace="/panda1"
     # Creates the SimpleActionClient, passing the type of the action to the constructor.
-    client = actionlib.SimpleActionClient('/joint_min_jerk_action_server', JointMinJerkAction)
+    client = actionlib.SimpleActionClient(namespace+'/joint_min_jerk_action_server', JointMinJerkAction)
 
     # Waits until the action server has started up and started
     # listening for goals.

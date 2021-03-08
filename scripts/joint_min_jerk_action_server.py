@@ -41,7 +41,7 @@ class JointMinJerkActionInterface(object):
         """Constructor."""
 
         # Subscribe to robot state topics
-        rospy.Subscriber('/joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
+        rospy.Subscriber('joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
         
         # Initialize publisher
         self._command_pub = rospy.Publisher('/panda1/gazebo_panda/effort_joint_position_controller/command',Float64MultiArray, queue_size = 1, tcp_nodelay = True)
