@@ -6,7 +6,7 @@
 #
 
 # Calculations
-from dmp import dmp_ros
+from dmp import dmp
 
 # Numpy
 import numpy as np
@@ -17,8 +17,7 @@ import actionlib
 
 # ROS messages
 from sensor_msgs.msg import JointState
-from franka_core_msgs.msg import JointCommand, RobotState
-
+from std_msgs.msg import Float64MultiArray
 # Action messages
 import robot_module_msgs.msg 
 
@@ -41,10 +40,10 @@ class DMPActionInterface(object):
         """Constructor."""
 
         # Subscribe to robot state topics
-        rospy.Subscriber('/joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
+        rospy.Subscriber('joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
         
         # Initialize publisher
-        self._command_pub = rospy.Publisher('/panda_simulator/motion_controller/arm/joint_commands',JointCommand, queue_size = 1, tcp_nodelay = True)
+        self._command_pub = rospy.Publisher('/panda1/gazebo_panda/effort_joint_position_controller/command',Float64MultiArray, queue_size = 1, tcp_nodelay = True)
 
 
         # Start the action server
@@ -79,13 +78,14 @@ class DMPActionInterface(object):
         qdot = np.asarray(vel_desired)
 
         #Construct message
-        cmd_msg = JointCommand()
+        cmd_msg = Float64MultiArray()
         
-        cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
-        cmd_msg.position = q
-        cmd_msg.velocity = qdot
-        cmd_msg.mode = cmd_msg.POSITION_MODE
-        
+        #cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
+        #cmd_msg.position = q
+        #cmd_msg.velocity = qdot
+        #cmd_msg.mode = cmd_msg.POSITION_MODE
+        cmd_msg.data = q  
+
         #Publish
         self._command_pub.publish(cmd_msg)
         
@@ -97,13 +97,29 @@ class DMPActionInterface(object):
     def execute_cb(self, goal):
         """Main action execution callback method."""
         num_joints=7
-        coeffs = np.zeros((num_joints, 6))
-        start_joint_pos = self._robotjoints
-        end_joint_pos = goal.goal_joint_pos
-        motion_duration = goal.motion_duration
-        motion_timestep = goal.motion_timestep
-        rate = rospy.Rate(1/goal.motion_timestep)
 
+
+        print(goal)
+        start_joint_pos = goal.DMP.y0
+        end_joint_pos = goal.DMP.goal
+        motion_duration = goal.DMP.tau
+        motion_timestep = 0.01 #goal.DMP.d_t
+        rate = rospy.Rate(1/motion_timestep)
+
+        # Check how far you are starting point
+        self._robotjoints
+
+
+        dmp_exe = dmp(num_weights=goal.DMP.N)
+        dmp_exe.tau =
+        dmp_exe._d_t = 
+        dmp_exe.y0 = goal.DMP.y0.positions
+        dmp_exe.goal = goal.DMP.y0.positions
+        dmp_exe.
+
+
+        trj=dmp_exe.decode()
+        
         # Calculate trajectory points using DMP
         for i in range(num_joints):
             coeffs[i] = polynomial1(start_joint_pos[i], 0.0, 0.0,
@@ -157,7 +173,7 @@ if __name__ == '__main__':
     try:
         rospy.init_node('DMP_action_server')
         server = DMPActionInterface(rospy.get_name())
-
+        
         rospy.loginfo("Action server \'{0}\' started.".format(rospy.get_name()))
 
         rospy.spin()
