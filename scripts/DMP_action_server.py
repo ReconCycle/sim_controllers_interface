@@ -6,7 +6,7 @@
 #
 
 # Calculations
-#from DMP import .
+from dmp import dmp_ros
 
 # Numpy
 import numpy as np

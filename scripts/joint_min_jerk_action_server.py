@@ -17,7 +17,7 @@ import actionlib
 
 # ROS messages
 from sensor_msgs.msg import JointState
-from franka_core_msgs.msg import JointCommand, RobotState
+from std_msgs.msg import Float64MultiArray
 
 # Action messages
 import robot_module_msgs.msg 
@@ -44,7 +44,7 @@ class JointMinJerkActionInterface(object):
         rospy.Subscriber('/joint_states', JointState, self.getrobotjoints_cb,  tcp_nodelay=True)
         
         # Initialize publisher
-        self._command_pub = rospy.Publisher('/panda_simulator/motion_controller/arm/joint_commands',JointCommand, queue_size = 1, tcp_nodelay = True)
+        self._command_pub = rospy.Publisher('/panda1/gazebo_panda/effort_joint_position_controller/command',Float64MultiArray, queue_size = 1, tcp_nodelay = True)
 
 
         # Start the action server
@@ -79,13 +79,13 @@ class JointMinJerkActionInterface(object):
         qdot = np.asarray(vel_desired)
 
         #Construct message
-        cmd_msg = JointCommand()
+        cmd_msg = Float64MultiArray()
         
-        cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
-        cmd_msg.position = q
-        cmd_msg.velocity = qdot
-        cmd_msg.mode = cmd_msg.POSITION_MODE
-        
+        #cmd_msg.names = ['panda_joint1','panda_joint2','panda_joint3','panda_joint4','panda_joint5','panda_joint6','panda_joint7']
+        #cmd_msg.position = q
+        #cmd_msg.velocity = qdot
+        #cmd_msg.mode = cmd_msg.POSITION_MODE
+        cmd_msg.data = q    
         #Publish
         self._command_pub.publish(cmd_msg)
         
@@ -155,7 +155,7 @@ class JointMinJerkActionInterface(object):
 if __name__ == '__main__':
 
     try:
-        rospy.init_node('joint_min_jerk_action_server')
+        rospy.init_node('joint_min_jerk_action_server32')
         server = JointMinJerkActionInterface(rospy.get_name())
 
         rospy.loginfo("Action server \'{0}\' started.".format(rospy.get_name()))
