@@ -1,0 +1,4 @@
+- git: 
+   local-name: dmp_library
+   uri: https://repo.ijs.si/tgaspar/dmp_library.git 
+   version: code_refactor  
