@@ -26,8 +26,8 @@ import robot_module_msgs.msg
 # ===================
 class DMPActionInterface(object):
 
-    _feedback = robot_module_msgs.msg.JointMinJerkFeedback()
-    _result = robot_module_msgs.msg.JointMinJerkResult()
+    _feedback = robot_module_msgs.msg.JointDMPFeedback()
+    _result = robot_module_msgs.msg.JointDMPResult()
     _action_name = ''
     _command_pub = None
 
@@ -84,6 +84,7 @@ class DMPActionInterface(object):
         #cmd_msg.position = q
         #cmd_msg.velocity = qdot
         #cmd_msg.mode = cmd_msg.POSITION_MODE
+        print(q)
         cmd_msg.data = q  
 
         #Publish
@@ -109,28 +110,37 @@ class DMPActionInterface(object):
         # Check how far you are starting point
         self._robotjoints
 
-
-        dmp_exe = dmp(num_weights=goal.DMP.N)
-        dmp_exe.tau =
-        dmp_exe._d_t = 
-        dmp_exe.y0 = goal.DMP.y0.positions
-        dmp_exe.goal = goal.DMP.y0.positions
-        dmp_exe.
-
-
-        trj=dmp_exe.decode()
         
+                
         # Calculate trajectory points using DMP
-        for i in range(num_joints):
-            coeffs[i] = polynomial1(start_joint_pos[i], 0.0, 0.0,
-                            end_joint_pos[i], 0.0, 0.0,
-                            motion_duration)
+
+        dmp_exe = dmp.DMP(num_weights=goal.DMP.N)
+        dmp_exe.tau = goal.DMP.tau
+        dmp_exe._d_t = motion_timestep
+        dmp_exe.y0 = goal.DMP.y0.position
+        dmp_exe.goal = goal.DMP.goal.position
+        dmp_exe.a_x = goal.DMP.a_x
+        dmp_exe.a_z = goal.DMP.a_z
+        dmp_exe.b_z = goal.DMP.b_z
+        dmp_exe.c = np.array(goal.DMP.c)
+        dmp_exe.sigma = np.array(goal.DMP.sigma)
+        dmp_exe._num_dof=len(dmp_exe.goal)
+        weights=np.zeros((len(dmp_exe.goal),goal.DMP.N))
+        for i in range(len(dmp_exe.goal)):
+            weights[i,:]=goal.DMP.w[i].data
             
-        joint_pos = np.zeros((int(motion_duration / motion_timestep + 1), num_joints))
+        dmp_exe.weights_pos = weights 
+
+        trj, t =dmp_exe.decode()
+        print(trj)
+        joint_pos = trj
+
+            
+        #joint_pos = np.zeros((int(motion_duration / motion_timestep + 1), num_joints))
         joint_vel = np.zeros((int(motion_duration / motion_timestep + 1), num_joints))
 
-        for i in range(num_joints):
-            joint_pos[:, i], joint_vel[:, i], _ = polynomial2(coeffs[i], motion_timestep, motion_duration)
+        #for i in range(num_joints):
+            #joint_pos[:, i] = 
         
         
         # Publish info to the console for the user
@@ -155,7 +165,9 @@ class DMPActionInterface(object):
             #print(joint_pos[i, :])
 
             # Get the current pose as feedback
-            self._feedback.current_joint_pos = self._robotjoints
+            joints=JointState()
+            joints.position = self._robotjoints
+            self._feedback.joints = joints
             #self._feedback.joint_diff = ...
 
             # Publish the feedback
@@ -171,7 +183,7 @@ class DMPActionInterface(object):
 if __name__ == '__main__':
 
     try:
-        rospy.init_node('DMP_action_server')
+        rospy.init_node('join_DMP_action_server')
         server = DMPActionInterface(rospy.get_name())
         
         rospy.loginfo("Action server \'{0}\' started.".format(rospy.get_name()))

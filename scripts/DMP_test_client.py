@@ -26,7 +26,7 @@ def test_client():
 
     namespace="/panda1"
     # Creates the SimpleActionClient, passing the type of the action to the constructor.
-    client = actionlib.SimpleActionClient('/DMP_action_server', JointDMPAction)
+    client = actionlib.SimpleActionClient(namespace+'/joint_DMP_action_server', JointDMPAction)
 
     # Waits until the action server has started up and started
     # listening for goals.
@@ -46,16 +46,23 @@ def test_client():
     D_T = 0.01
 
     time_vec = np.arange(0, T, D_T)
+    
     traj = np.array([np.sin(time_vec/time_vec[-1] * 2*np.pi),
-                             np.cos(time_vec/time_vec[-1] * 2*np.pi),
-                             -np.sin(time_vec/time_vec[-1] * 2*np.pi)
+                             np.sin(time_vec/time_vec[-1] * 2*np.pi),
+                             np.sin(time_vec/time_vec[-1] * 2*np.pi),
+                             np.sin(time_vec/time_vec[-1] * 2*np.pi),
+                             np.sin(time_vec/time_vec[-1] * 2*np.pi),
+                              np.sin(time_vec/time_vec[-1] * 2*np.pi),
+                             np.sin(time_vec/time_vec[-1] * 2*np.pi)
                              ]).transpose()
     
     # Put the trajectory in the JointState array
     traj_ros = []
+
+    amplitude=0.1
     for i in range(len(time_vec)):
         sample = JointState()
-        sample.position = traj[i]
+        sample.position = q0 + amplitude*traj[i]
         sample.header.stamp = rospy.Time(time_vec[i])
         # The following line is an necessary evil because rospy.Time does not
         # directly copy the time. Example: rospy.Time(1.16) = rospy.Time[1159999999]

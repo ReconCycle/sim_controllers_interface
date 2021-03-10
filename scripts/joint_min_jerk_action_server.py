@@ -123,7 +123,7 @@ class JointMinJerkActionInterface(object):
                                                            start_joint_pos,
                                                            end_joint_pos,
                                                            motion_duration))
-        
+       
         # Start executing the action
         for i in range(len(joint_pos)):
 
@@ -155,7 +155,7 @@ class JointMinJerkActionInterface(object):
 if __name__ == '__main__':
 
     try:
-        rospy.init_node('joint_min_jerk_action_server32')
+        rospy.init_node('joint_min_jerk_action_server')
         server = JointMinJerkActionInterface(rospy.get_name())
 
         rospy.loginfo("Action server \'{0}\' started.".format(rospy.get_name()))

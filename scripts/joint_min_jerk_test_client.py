@@ -57,6 +57,7 @@ if __name__ == '__main__':
         # publish and subscribe over ROS.
         rospy.init_node('joint_min_jerk_action_test_client')
         test_client()
+        
 
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
